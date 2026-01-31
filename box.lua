@@ -1,133 +1,113 @@
--- ESP BOX Simples - Delta Executor
--- Apenas caixa vermelha ao redor dos jogadores
+-- ESP BOX Delta Executor - Versão Simplificada
+-- Teste esta versão
+
+-- Verificar se a API Drawing está disponível
+if not Drawing then
+    error("API Drawing não disponível no executor")
+    return
+end
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
+local me = Players.LocalPlayer
+local cam = workspace.CurrentCamera
 
--- Configurações
-local BOX_COLOR = Color3.fromRGB(255, 50, 50)  -- Vermelho
-local BOX_THICKNESS = 1
+-- Dicionário para armazenar as caixas
+local boxes = {}
 
--- Armazenamento
-local ESPBoxes = {}
-local Connections = {}
-
--- Criar as 4 linhas da caixa
-local function createBoxLines()
-    local box = {}
-    
-    -- Linhas horizontais superiores e inferiores
-    box.TopLine = Drawing.new("Line")
-    box.BottomLine = Drawing.new("Line")
-    
-    -- Linhas verticais laterais
-    box.LeftLine = Drawing.new("Line")
-    box.RightLine = Drawing.new("Line")
+-- Função para criar uma caixa
+function createBox()
+    local box = {
+        top = Drawing.new("Line"),
+        bottom = Drawing.new("Line"),
+        left = Drawing.new("Line"),
+        right = Drawing.new("Line")
+    }
     
     -- Configurar todas as linhas
     for _, line in pairs(box) do
         line.Visible = false
-        line.Thickness = BOX_THICKNESS
-        line.Color = BOX_COLOR
+        line.Thickness = 1
+        line.Color = Color3.fromRGB(255, 0, 0)  -- Vermelho puro
     end
     
     return box
 end
 
--- Criar ESP para jogador
-local function createESP(player)
-    if player == LocalPlayer then return end
-    if ESPBoxes[player] then return end
+-- Adicionar ESP para um jogador
+function addESP(player)
+    if player == me then return end
+    if boxes[player] then return end
     
-    local box = createBoxLines()
-    ESPBoxes[player] = box
-    
-    -- Remover quando jogador sair
-    player.CharacterRemoving:Connect(function()
-        if ESPBoxes[player] then
-            for _, line in pairs(ESPBoxes[player]) do
-                line:Remove()
-            end
-            ESPBoxes[player] = nil
+    boxes[player] = createBox()
+end
+
+-- Remover ESP de um jogador
+function removeESP(player)
+    if boxes[player] then
+        for _, line in pairs(boxes[player]) do
+            line:Remove()
         end
-    end)
+        boxes[player] = nil
+    end
 end
 
 -- Atualizar todas as caixas
-local function updateESP()
-    for player, box in pairs(ESPBoxes) do
+function updateESP()
+    for player, box in pairs(boxes) do
         if not player or not player.Parent then
-            for _, line in pairs(box) do
-                line:Remove()
-            end
-            ESPBoxes[player] = nil
+            removeESP(player)
             continue
         end
         
-        local character = player.Character
-        if not character then
+        local char = player.Character
+        if not char then
             for _, line in pairs(box) do
                 line.Visible = false
             end
             continue
         end
         
-        local humanoid = character:FindFirstChild("Humanoid")
-        local rootPart = character:FindFirstChild("HumanoidRootPart")
+        local hum = char:FindFirstChild("Humanoid")
+        local root = char:FindFirstChild("HumanoidRootPart")
         
-        if not humanoid or not rootPart or humanoid.Health <= 0 then
+        if not hum or not root or hum.Health <= 0 then
             for _, line in pairs(box) do
                 line.Visible = false
             end
             continue
         end
         
-        -- Converter posição para tela
-        local rootPos, onScreen = Camera:WorldToViewportPoint(rootPart.Position)
+        -- Verificar se está na tela
+        local pos, onScreen = cam:WorldToViewportPoint(root.Position)
         
         if onScreen then
-            -- Calcular tamanho da caixa baseado na distância
-            local distance = (Camera.CFrame.Position - rootPart.Position).Magnitude
-            local boxSize = Vector2.new(1500 / distance, 2500 / distance)
+            -- Tamanho fixo simplificado
+            local size = 20  -- Tamanho base
             
-            -- Posições dos cantos da caixa
-            local x, y = rootPos.X, rootPos.Y
-            local halfWidth = boxSize.X / 2
-            local halfHeight = boxSize.Y / 2
+            -- Posições dos cantos
+            local topLeft = Vector2.new(pos.X - size, pos.Y - size)
+            local topRight = Vector2.new(pos.X + size, pos.Y - size)
+            local bottomLeft = Vector2.new(pos.X - size, pos.Y + size)
+            local bottomRight = Vector2.new(pos.X + size, pos.Y + size)
             
-            -- Canto superior esquerdo
-            local topLeft = Vector2.new(x - halfWidth, y - halfHeight)
-            -- Canto superior direito
-            local topRight = Vector2.new(x + halfWidth, y - halfHeight)
-            -- Canto inferior esquerdo
-            local bottomLeft = Vector2.new(x - halfWidth, y + halfHeight)
-            -- Canto inferior direito
-            local bottomRight = Vector2.new(x + halfWidth, y + halfHeight)
+            -- Atualizar linhas
+            box.top.From = topLeft
+            box.top.To = topRight
+            box.top.Visible = true
             
-            -- Atualizar linhas da caixa
-            -- Linha superior
-            box.TopLine.From = topLeft
-            box.TopLine.To = topRight
-            box.TopLine.Visible = true
+            box.bottom.From = bottomLeft
+            box.bottom.To = bottomRight
+            box.bottom.Visible = true
             
-            -- Linha inferior
-            box.BottomLine.From = bottomLeft
-            box.BottomLine.To = bottomRight
-            box.BottomLine.Visible = true
+            box.left.From = topLeft
+            box.left.To = bottomLeft
+            box.left.Visible = true
             
-            -- Linha esquerda
-            box.LeftLine.From = topLeft
-            box.LeftLine.To = bottomLeft
-            box.LeftLine.Visible = true
-            
-            -- Linha direita
-            box.RightLine.From = topRight
-            box.RightLine.To = bottomRight
-            box.RightLine.Visible = true
+            box.right.From = topRight
+            box.right.To = bottomRight
+            box.right.Visible = true
         else
-            -- Esconder caixa se não estiver na tela
             for _, line in pairs(box) do
                 line.Visible = false
             end
@@ -135,54 +115,76 @@ local function updateESP()
     end
 end
 
--- Inicializar para todos os jogadores
-for _, player in ipairs(Players:GetPlayers()) do
-    createESP(player)
-end
+-- TESTE SIMPLES: Versão alternativa
+print("=== TESTANDO ESP BOX DELTA ===")
+warn("Iniciando ESP Box...")
 
--- Conectar eventos
-Players.PlayerAdded:Connect(function(player)
-    createESP(player)
-end)
-
-Players.PlayerRemoving:Connect(function(player)
-    if ESPBoxes[player] then
-        for _, line in pairs(ESPBoxes[player]) do
-            line:Remove()
-        end
-        ESPBoxes[player] = nil
-    end
-end)
-
--- Loop de atualização principal
-RunService.RenderStepped:Connect(function()
-    pcall(function()
-        updateESP()
-    end)
-end)
-
--- Limpar função (opcional)
-local function cleanup()
-    for player, box in pairs(ESPBoxes) do
-        for _, line in pairs(box) do
-            line:Remove()
+-- Tentar método direto
+local function testSimpleESP()
+    -- Para cada jogador
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= me then
+            addESP(player)
         end
     end
-    table.clear(ESPBoxes)
     
-    for _, conn in ipairs(Connections) do
-        conn:Disconnect()
-    end
-    table.clear(Connections)
+    -- Eventos
+    Players.PlayerAdded:Connect(function(player)
+        wait(1)
+        addESP(player)
+    end)
+    
+    Players.PlayerRemoving:Connect(function(player)
+        removeESP(player)
+    end)
+    
+    -- Loop de atualização
+    RunService.RenderStepped:Connect(function()
+        pcall(updateESP)
+    end)
+    
+    print("ESP Box iniciado!")
 end
 
--- Adicionar atalho para limpar (opcional)
-game:GetService("UserInputService").InputBegan:Connect(function(input)
-    if input.KeyCode == Enum.KeyCode.P then  -- Pressione P para limpar
-        cleanup()
-        warn("ESP Box limpo!")
-    end
-end)
+-- Tentar executar
+local success, err = pcall(testSimpleESP)
+if not success then
+    warn("Erro ao iniciar ESP:", err)
+    
+    -- Tentar método mais direto ainda
+    print("Tentando método alternativo...")
+    
+    -- Código direto no loop
+    RunService.RenderStepped:Connect(function()
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= me then
+                local char = player.Character
+                if char then
+                    local root = char:FindFirstChild("HumanoidRootPart")
+                    if root then
+                        local pos, visible = cam:WorldToViewportPoint(root.Position)
+                        if visible then
+                            -- Desenhar caixa manualmente (teste)
+                            -- Esta é uma abordagem diferente
+                            local gui = Instance.new("ScreenGui", me.PlayerGui)
+                            local frame = Instance.new("Frame", gui)
+                            frame.Size = UDim2.new(0, 20, 0, 20)
+                            frame.Position = UDim2.new(0, pos.X, 0, pos.Y)
+                            frame.BackgroundColor3 = Color3.new(1, 0, 0)
+                            frame.BorderSizePixel = 1
+                            frame.BorderColor3 = Color3.new(1, 1, 1)
+                            game.Debris:AddItem(gui, 0.1)
+                        end
+                    end
+                end
+            end
+        end
+    end)
+end
 
-print("ESP Box Vermelho Ativado!")
-print("Pressione P para limpar")
+-- Adicionar mensagem de status
+game:GetService("StarterGui"):SetCore("SendNotification", {
+    Title = "ESP Box Delta",
+    Text = "ESP Box vermelho ativado!",
+    Duration = 5
+})
