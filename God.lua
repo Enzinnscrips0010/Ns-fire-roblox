@@ -1,53 +1,55 @@
--- Anti-Death Script para Roblox
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local LocalPlayer = Players.LocalPlayer
+-- MÉTODO NUCLEAR - IMORTALIDADE ABSOLUTA
+local Player = game.Players.LocalPlayer
 
-if not LocalPlayer then
-    LocalPlayer = Players.PlayerAdded:Wait()
-end
-
-local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-local Humanoid = Character:WaitForChild("Humanoid")
-
--- Previne morte por dano
-Humanoid.HealthChanged:Connect(function()
-    if Humanoid.Health <= 0 then
-        Humanoid.Health = Humanoid.MaxHealth
-    elseif Humanoid.Health < 50 then
-        Humanoid.Health = Humanoid.MaxHealth
-    end
+-- 1. Hook global que bloqueia TUDO
+local old
+old = hookfunction(Instance.new("Humanoid").TakeDamage, function(...)
+    return nil -- Bloqueia completamente
 end)
 
--- Previne estados de morte
-Humanoid.StateChanged:Connect(function(oldState, newState)
-    if newState == Enum.HumanoidStateType.FallingDown or 
-       newState == Enum.HumanoidStateType.Dead then
-        Humanoid:ChangeState(Enum.HumanoidStateType.Running)
-        Humanoid.Health = Humanoid.MaxHealth
-    end
-end)
-
--- Loop principal
-task.spawn(function()
-    while task.wait(0.1) do
-        if Humanoid and Humanoid.Health < Humanoid.MaxHealth then
-            Humanoid.Health = Humanoid.MaxHealth
+-- 2. Loop infinito de proteção
+spawn(function()
+    while true do
+        wait()
+        if Player.Character then
+            local Humanoid = Player.Character:FindFirstChild("Humanoid")
+            if Humanoid then
+                -- Saúde infinita
+                pcall(function()
+                    Humanoid.MaxHealth = 9e999
+                    Humanoid.Health = 9e999
+                end)
+                
+                -- Remove morte
+                if Humanoid.Health <= 0 then
+                    pcall(function()
+                        Humanoid:Destroy()
+                        wait(0.1)
+                        local newHumanoid = Instance.new("Humanoid")
+                        newHumanoid.Parent = Player.Character
+                        newHumanoid.MaxHealth = 9e999
+                        newHumanoid.Health = 9e999
+                    end)
+                end
+            end
         end
     end
 end)
 
--- Reconecta quando o personagem muda
-LocalPlayer.CharacterAdded:Connect(function(newChar)
-    task.wait(0.5)
-    Character = newChar
-    Humanoid = newChar:WaitForChild("Humanoid")
-    
-    Humanoid.HealthChanged:Connect(function()
-        if Humanoid.Health <= 0 then
-            Humanoid.Health = Humanoid.MaxHealth
-        elseif Humanoid.Health < 50 then
-            Humanoid.Health = Humanoid.MaxHealth
+-- 3. Proteção contra quedas
+spawn(function()
+    while true do
+        wait(0.1)
+        if Player.Character then
+            local Root = Player.Character:FindFirstChild("HumanoidRootPart")
+            if Root then
+                -- Teleporta se cair
+                if Root.Position.Y < -500 then
+                    Root.CFrame = CFrame.new(0, 100, 0)
+                end
+            end
         end
-    end)
+    end
 end)
+
+print("💀 IMORTALIDADE NUCLEAR ATIVADA!")
